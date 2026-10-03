@@ -2,6 +2,7 @@
 
 > 一句话：把 `src/tests/auto/Analysis/packages/` 下的 13 个测试包（28 个文件、13.9 KB）移出 git，改由生成器重建，并以「生成物 == 删除前提交的记录字节」作为等价判据；实现形态有三种候选（§3），其中 **D-OTP1** 待选定后再动手。
 > 快照：otter `HEAD = c1c8971`（分支 `analysis-level-1`），2026-10-03。工作区唯一未跟踪文件是他人留下的 `docs/plans/asr-integration.md`，本方案不触碰它。
+> （2026-10-03 二次压缩后：本文引用的增量 SHA 已不在分支上；当前增量以 `git log` 的提交主题为准，按「提交主题 + 文件路径」定位而不是按 SHA。**订正**：这里原先写明的锚点 `backup/pre-squash-20261003-otter` 在本机不存在；现行锚点是三次压缩后的 `backup/pre-squash-20261003b-otter`。）
 > 与前两阶段的关系：synthrt 已完成收敛与全量验证（145/145 构建 + ctest 16/16），wolf 已完成同类改造（9 笔提交、门禁 17/17 全绿）。本方案是同一目标在 otter 上的收口，**本次只做 otter**。
 
 ## 0. 需人工确认的关键点
@@ -22,10 +23,10 @@
 2. 消费者只有两个测试：`test_AnalysisLoad.cpp`（293 行，11 处 `packages()` 调用，`:31-33` 由 `OTTER_TEST_PACKAGE_DIR` 宏得到根目录）与 `test_AnalysisRuntime.cpp`（892 行，1 处 `:61` 直接用宏）。宏在 `src/tests/auto/Analysis/CMakeLists.txt:70` 定义为 `"${CMAKE_CURRENT_SOURCE_DIR}/packages"`，即**源码目录绝对路径**。
 3. 两个测试**本身已经在运行期往临时目录写包**：`test_AnalysisLoad.cpp:53-66` 的 `writeAligner()` 用 `std::ofstream` 拼 `desc.json` 与 `inference.json`，`test_AnalysisRuntime.cpp:98-102` 同类。形态 C 因此不是新机制，而是把已有做法统一。
 4. 包 id 不能从目录名机械推出：12 个是 `otter/test-<目录名>` 一类，但有三个例外——`bad-exports-knob-range` 的 id 是 `otter/bad-exports-knob-range`（无 `test-`）、`unknobbed` 是 `otter/unknobbed`、`slow-analyzer` 是 `otter/test-slow`。生成器的表必须逐包记录 id，不能推导。
-5. 本仓已有**同类先例**：模型夹具由 `scripts/make-model-fixtures.py` 在构建期生成到 `${CMAKE_BINARY_DIR}/fixtures`，用 `.stamp` 标记完成、缺失时用 `OTTER_TEST_SKIP_EXIT_CODE=77` 跳过、无 Python+onnx 时把 4 个模型测试注册为 `DISABLED`（`CMakeLists.txt:76-137`）；`TestSupport.h:54-68` 的 `FixturesOrSkip` 负责跳过判定。
+5. 本仓已有**同类先例**：模型夹具由 `scripts/make-model-fixtures.py` 在构建期生成到 `${CMAKE_BINARY_DIR}/fixtures`，用 `.stamp` 标记完成、缺失时用 `OTTER_TEST_SKIP_EXIT_CODE=77` 跳过、无 Python+onnx 时把 4 个模型测试注册为 `DISABLED`（`CMakeLists.txt:76-137`）；`TestSupport.h:93-107` 的 `FixturesOrSkip` 负责跳过判定。
 6. CI（`.github/workflows/ci.yml`）在 Linux 与 Windows 两平台跑 configure/build/ctest，并且**专门有一道守卫**：`ctest -N` 里必须列出 `test_Rmvpe/test_Game/test_Hfa/test_Tifa`，否则报错退出（理由写在注释里：静默缩水的套件比失败的套件更糟）。ctest 共注册 12 条（10 个 `add_auto_test` + `test_CheckDeclarations` + `test_InstalledSurface`），与 `docs/otter-design.md:990` 记载一致。
 7. `scripts/check-declarations.py` 是**发布前**的声明 lint，不消费这些测试包（`git grep` 无引用）；`scripts/make-package.py` 是发布装配器（声明 + 模型 → zip），与测试包无关。
-8. 本机其它仓的依赖**不影响** otter 的门禁：otter 的 `build/vcpkg_installed` 里 synthrt 是新鲜的（`include/synthrt/SVS/SingerContrib.h`、`InferenceContrib.h` 都含 `NAME`），umbrella boost 已装（`share/boost/BoostConfig.cmake`），Python 带 onnx 1.19.1；其端口 `scripts/vcpkg-ports/synthrt-main/portfile.cmake` 的 `REF` 正是 `f2f0f8ee3669206ed90f951c17c397a23c5e4b6d`（与本轮 synthrt 收敛后的 pin 相同）。**无需 wolf 那种影子安装根。**
+8. 本机其它仓的依赖**不影响** otter 的门禁：otter 的 `build/vcpkg_installed` 里 synthrt 是新鲜的（`include/synthrt/SVS/SingerContrib.h`、`InferenceContrib.h` 都含 `NAME`），umbrella boost 已装（`share/boost/BoostConfig.cmake`），Python 带 onnx 1.19.1；其端口 `scripts/vcpkg-ports/synthrt-main/portfile.cmake` 的 `REF` 与本轮 synthrt 的 pin 一致（当时为 `f2f0f8ee…`，2026-10-03 synthrt 推送后随分支 tip 改为 `63bef25…`；**pin 的 sha 只以该端口文件为准**，此处不复写第二份）。**无需 wolf 那种影子安装根。**
 
 ## 2. 判据（怎么算做对）
 
@@ -33,7 +34,7 @@
 2. **`--check` 自证**：在未改动代码上运行 `--check <dir>` 必须 0 差异（沿用 wolf 的自证纪律）。
 3. **门禁转绿**：重新配置 + 全量构建 + ctest 全绿，且**不出现新增的跳过**；测试注册数不变（12 条）。
 4. **缺数据行为明确**：按 D-OTP3 的结论实测跳过路径或显式声明不测。
-5. **脚本自测**：生成器带 `unittest`（`scripts/test_make_test_packages.py`，随 `test_CheckDeclarations` 一起被 ctest 执行），覆盖表完整性、确定性、少文件/多文件/改内容三类差异、`--check` 判定、纯 LF 产物。
+5. **脚本自测**：生成器带 `unittest`（`scripts/test_make_test_packages.py`，随 `test_CheckDeclarations` 一起被 ctest 执行），覆盖表完整性、确定性、少文件/多文件/改内容三类差异、`--check` 判定、纯 LF 产物。**（订正，见 §3.4）**：选定方案改为 CMake 生成器后，仓库里不存在 `scripts/test_make_test_packages.*`，生成器的自证是用一次性工具手工做的，不由 ctest 承载。
 6. **文档同步**：`docs/plans/hfa-align.md:267` 提到 `src/tests/auto/Analysis/packages/*` 的那一行、以及 `docs/otter-design.md` 的测试注册数记载，必须与改造后的现实一致。
 
 ## 3. 候选方案
@@ -44,14 +45,17 @@
 
 - **交付物一**：`scripts/make-test-packages.cmake` —— 内嵌 13 个包 / 28 个文件的表，`cmake -P` 运行；支持 `-DOTTER_TEST_PACKAGES_OUTPUT=<dir>`（写入）、`-DOTTER_TEST_PACKAGES_CHECK=<dir>`（逐字节校验该目录并报告 missing/differs/unexpected）、`-DOTTER_TEST_PACKAGES_LIST=ON`（只列表）。
 - **交付物二**：`scripts/fetch-models.cmake` —— 从 `models-v0.1` 下载 `manifest.json` 与四个真实包（可用 `-DOTTER_FETCH_VARIANTS=` 只取部分），按 manifest 中的 SHA512 校验后放入指定目录；**不联网不在 CI 里默认执行**，由用户/开发者显式调用。
-- **交付物三**：测试接线 —— 新增缓存变量 `OTTER_TEST_PACKAGES_SOURCE`（默认空）；两条装载测试经环境变量读取该目录，**目录为空或不存在时以 `OTTER_TEST_SKIP_EXIT_CODE=77` 退出**（与模型夹具的跳过语义一致），并在 ctest 上设 `SKIP_RETURN_CODE 77`。
-- **交付物四**：CI 加一步准备目录（跑 `cmake -P scripts/make-test-packages.cmake`）+ 守卫「两条装载测试必须处于启用状态」。
+- **交付物三**：测试接线 —— 新增缓存变量 `OTTER_TEST_PACKAGES_SOURCE`（默认空）；两条装载测试经环境变量读取该目录。**语义是两级、不是一条**：变量未给或为空 ⇒ 打印生成命令并以 `OTTER_TEST_SKIP_EXIT_CODE=77` 退出（ctest 侧 `SKIP_RETURN_CODE 77` 记为跳过）；**变量给了但目录不存在 ⇒ configure 期硬失败**，不静默跳过。（R5 三条实测：未给 → exit 77；给了却不存在 → exit 1；置空后 ctest 报 `***Skipped` 但仍返回 0。）
+- **交付物四（R5 实现 + 现状订正，2026-10-03）**：CI 在 Configure 前加「生成 + `--check`」两步（`9126ced`），并把生成目录传给 Configure；**守卫现状**：`ci.yml` 的 `Require the model tests` 只要求四个模型测试处于启用态，**没有**为两条装载测试加同类守卫。装载测试始终构建、只在运行期缺数据时跳过，要把「静默跳过」也挡住需另查 ctest 输出（候选改进，未实施）。
 - **删除**：`src/tests/auto/Analysis/packages/` 下 28 个跟踪文件（单独提交）。
-- 脚本自测：`scripts/test_make_test_packages.cmake`?? —— CMake 脚本的自测以 ctest 用例承载（生成到临时目录 → `--check` 断言 0 差异 → 断言缺文件/多文件/改内容三类被检出），不新建 Python 自测。
+- 脚本自测：**不由 ctest 承载**——仓库里不存在 `scripts/test_make_test_packages.*`，ctest 注册的 12 条用例中也没有生成器自测。R4 的自证是用一次性工具手工做的（写入 / `--check` / 三类污染 / `--list`，见下条记录）；**常设防线是 CI 的 `--check` 步骤**（生成器表漂移会让 CI 失败），但它不覆盖「三类污染是否仍能被检出」。若要长期守卫，应在 `scripts/` 加一份 `test_*.py` 或一条 ctest 用例（候选改进，未实施）。
 - **已完成的实测（R4）**：`scripts/make-test-packages.cmake` 已提交（`dae4f75`，770 行），并做过一轮自证：(a) 写入 28 个文件后与 `HEAD` 记录**归一化字节 0 不一致、0 多余**；(b) `--check` 对完好目录 exit 0；(c) 追加一字节 / 多一个文件 / 少一个文件三类污染**全部被检出**（均非 0 退出）；(d) `--list` 列出 28 个名字；(e) **把脚本自身转成 CRLF 后（773 个 CR）直接 `cmake -P` 写入，产物仍与记录 28/28 一致、`--check` 仍 exit 0**——即 Windows 检出场景成立。
 - **已完成（R5，提交 `aed42c8`…`fab50fb`）**：接线与删除已落地——`aed42c8` 把两条装载测试改为从 `OTTER_TEST_PACKAGES_SOURCE` 读目录（**未给变量即退出 77 跳过；给了却不存在即失败**，不静默缩水），ctest 侧设 `SKIP_RETURN_CODE` 与 `ENVIRONMENT`；`TestSupport.h` 的跳过码宏带 `#error` 守护，6 个包含它的目标（2 装载 + 4 模型）都已由 CMake 定义；`2d3ab85` 删除 28 个跟踪文件（−569 行，`src/tests/auto/Analysis/packages/` 跟踪数归零）；`9126ced` 在 CI 加「生成 + `--check`」步骤并把目录传给 Configure（YAML 已解析复核，12 步）；`fab50fb` 同步 README 与 `docs/plans/hfa-align.md:267`。
 - **门禁已通过（R5 后半，用户授权后执行）**：全新 `build/cmake` + Ninja + MSVC 19.51（69 个构建步）→ `ctest`：**12/12 passed, 0 failed**（`test_AnalysisLoad` 0.08 s、`test_AnalysisRuntime` 15.62 s，两条都是 Passed 而非 Skipped，总 20.57 s；模型夹具在配置期生成成功）。跳过路径三条实测：变量未给 → 打印生成命令并 **exit 77**；变量指向不存在的目录 → **exit 1**（不静默跳过）；变量置空后 `ctest -R` 两条测试报 `***Skipped`，而 **ctest 仍返回 0** 并打印 "100% tests passed … 2 tests did not run"。最后一条是本方案最需要写明的坑：**跳过在 ctest 里是绿的**，因此 CI 必须自己保证数据齐备——这正是 CI 跑「生成 + `--check`」而不是只跑 ctest 的理由。实测后把变量指回生成目录，两条测试恢复 Passed。
 - **已知重约束（R5 读到）**：`docs/packages.md:7` 记载 rmvpe 单模型 345 MB、四个包合计数百 MB ⇒ `fetch-models.cmake` 必须**默认只列不拉**、按变体显式拉取；manifest 的字段以 `scripts/make-package.py`（写出方）为准。
+- **交付物二已完成（R6）**：`scripts/fetch-models.cmake`（**非 Python**，落实你 R4 的自定义要求：clone 后用内置脚本从 release 下真实件）。默认只列不拉 ✓；SHA512 取自 release 的 `manifest.json`，字段以写出方 `scripts/make-package.py:404-413` 为准（`id`/`file`/`sha512`/`version`/`compatVersion`/`directory`/`size`/`models`，顶层 `bundleVersion`+`packages[]` 按 `id` 排序）；下载后**自行**校验摘要，不符即删除并报出两侧摘要 ✓；release 标签与 `bundleVersion` 交叉核对（标签 = 版本去掉末尾零分量，`docs/packages.md:28`）✓；已存在且摘要正确的归档直接复用 ✓；`KEEP_ARCHIVES` / `MANIFEST`（离线）✓。**离线自检 29 项全绿**（`.tmp/check-fetch-models.py`，临时工具不入库）：列表、拉取、校验、复用、保留、未知变体、标签不符、空清单、坏 JSON、坏摘要、离线十一条路径。
+- **未联网验证（按你的选择）**：自检全程用本地伪造 release（`file://`）。附带实测：脚本曾成功取回**真实** release `models-v0.1` 的 `manifest.json` 并列出 4 个包、`bundleVersion 0.1.0.0`（即 schema 与标签规则与真实发布一致），但**四个包本体从未下载过**。
+- **发现·未解（留档待查）**：cmake 4.3.1 下 **untyped `-DOTTER_FETCH_OUTPUT=…` 会被丢弃**（同一名字带 `:PATH=` 在最小探针里可见、在真脚本里又不可见；`-DFOO`/`-DAB_CD`/长随机名一律正常；环境变量每次都可靠）。**未定位根因**，故脚本改为「环境优先、cache 变量其次」，文档与示例统一用环境变量；脚本注释与 README 均已写明该实测，避免用户把它误当成用法错误。
 
 ### 3.1 候选 A（未采用）：构建期生成，沿用模型夹具先例
 

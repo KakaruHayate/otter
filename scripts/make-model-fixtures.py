@@ -16,7 +16,7 @@ models.
 
 Usage:
 
-    python3 scripts/make-model-fixtures.py --output build/fixtures
+    python3 scripts/make-model-fixtures.py --output build/cmake/fixtures
 """
 
 import argparse
@@ -1564,8 +1564,10 @@ def write_package(root: Path, identifier: str, contributions: dict) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--output", default="build/fixtures", type=Path,
-                        help="output directory, replaced if it exists (default: build/fixtures)")
+    parser.add_argument("--output", default="build/cmake/fixtures", type=Path,
+                        help="output directory, replaced if it exists "
+                             "(default: build/cmake/fixtures, the directory the tests read when the "
+                             "build directory is the build/cmake of the README)")
     args = parser.parse_args()
 
     output = args.output

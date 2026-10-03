@@ -85,7 +85,7 @@ The headers under `otter/Support` are not part of the API. They declare the mani
 
 ## Requirements
 
-CMake 3.19 or later, and a checkout of the vcpkg overlay submodule:
+CMake 3.20 or later (configuring needs the 3.19 the project declares; the `ctest --test-dir` used below needs 3.20), and a checkout of the vcpkg overlay submodule:
 
 ```sh
 git submodule update --init
@@ -118,10 +118,10 @@ cmake --build build/cmake
 ctest --test-dir build/cmake
 ```
 
-The model tests (`test_Rmvpe`, `test_Game`, `test_Hfa` and `test_Tifa`) require fixtures, which are generated instead of committed. If the build finds a Python interpreter with the `onnx` and `numpy` modules, it generates the fixtures into the build tree as a dependency of those tests; otherwise the four tests are registered as disabled and ctest reports them as such. The script can also be run manually:
+The model tests (`test_Rmvpe`, `test_Game`, `test_Hfa` and `test_Tifa`) require fixtures, which are generated instead of committed. If the build finds a Python interpreter with the `onnx` and `numpy` modules, it generates the fixtures into the build tree as a dependency of those tests; otherwise the four tests are registered as disabled and ctest reports them as such. That decision is taken while configuring; a test that is enabled but finds its data missing at run time reports itself as skipped instead, which is a different mechanism (described below, together with the same distinction for the loading tests). The script can also be run manually:
 
 ```sh
-python3 scripts/make-model-fixtures.py --output build/fixtures
+python3 scripts/make-model-fixtures.py --output build/cmake/fixtures
 ```
 
 The fixtures are real ONNX graphs with the real signatures and arithmetic in place of trained weights. They verify that the providers conform to the contract; they do not verify numerical accuracy, which requires the trained models. A test that finds no fixture, no driver plugin or no ONNX Runtime at run time exits with the status that ctest reports as skipped, never as passed.
@@ -140,11 +140,20 @@ cmake -B build/cmake -G Ninja \
     -DOTTER_TEST_PACKAGES_SOURCE="$PWD/build/test-packages"
 ```
 
-Without that variable the two tests exit with the status ctest reports as skipped; with it naming a directory that does not exist they fail, so a checkout that was told where the packages are and finds none cannot pass unnoticed. Note that ctest counts a skipped run as passed and returns zero, so a suite that skipped is a green suite: generating the directory and checking it, as CI does before configuring, is what keeps a green run from hiding tests that never ran.
+Without that variable the two tests exit with the status ctest reports as skipped; with it naming a directory that does not exist they fail, so a checkout that was told where the packages are and finds none cannot pass unnoticed. Note that ctest returns zero for a run whose tests skipped: it prints how many did not run at the end, but the exit status stays green, so that count is the only sign and CI must not read the status alone. Generating the directory and checking it, as CI does before configuring, is what keeps a green run from hiding tests that never ran.
 
 ## Model packages
 
 A package is a declaration plus the model files it names, and it travels as one archive that is published with the models rather than from this repository: release `models-v0.1` provides `otter-game`, `otter-hfa`, `otter-rmvpe` and `otter-tifa`, version 0.1.0.0, with a `manifest.json` that lists all four. The declarations are not tracked here; assembly reads them from the directory given as `--declarations`, and [docs/packages.md](docs/packages.md) is the authority on what a release contains.
+
+A checkout can be given the real packages with one command, without a Python interpreter:
+
+```sh
+DOTTER_FETCH_OUTPUT=build/models DOTTER_FETCH_VARIANTS=hfa \
+    cmake -P scripts/fetch-models.cmake
+```
+
+The script reads the manifest of the release, checks every archive against the SHA512 that manifest records for it, and unpacks what matches. Stating no variants only lists what the release holds, because a release is hundreds of megabytes; `DOTTER_FETCH_VARIANTS=all` takes every package, `DOTTER_FETCH_TAG` reads another release, `DOTTER_FETCH_KEEP_ARCHIVES=ON` keeps the archives beside the packages, and `DOTTER_FETCH_MANIFEST` reads a manifest that is already on disk, which is how a run works offline. Settings are read from the environment first and from cache variables second; the examples use the environment, because an untyped `-D` entry for one of these names was measured to be dropped by cmake 4.3.1.
 
 Assembly copies the declarations, adds the model files and writes the archive, its checksum and a manifest fragment:
 

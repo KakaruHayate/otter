@@ -53,7 +53,7 @@ HFA 是**强制对齐器**：输入是「音频 + 已知歌词文本」，输出
 | 解释器形状（执行体 / 会话开启 / Provider / 插件 IID） | `src/plugins/analysisproviders/game/main.cpp`（现为 `src/plugins/inferenceinterpreters/game/main.cpp`） |
 | **加载期互检**：exports 与 configuration 必须自洽，否则包在装载期被拒绝 | 同上，`createExports` |
 | 输入校验由库完成（采样率/声道/整帧/段上限/旋钮域） | `include/otter/Analysis/AnalysisInput.h`（`prepareSamples` / `chooseKnob`） |
-| 插件与测试的构建接线 | `src/plugins/analysisproviders/CMakeLists.txt`、`src/tests/auto/Analysis/CMakeLists.txt` |
+| 插件与测试的构建接线 | `src/plugins/analysisproviders/CMakeLists.txt`（现为 `src/plugins/inferenceinterpreters/CMakeLists.txt`）、`src/tests/auto/Analysis/CMakeLists.txt` |
 | fixture 门禁：有 Python+onnx 时生成 fixture，否则用例 `DISABLED`；运行期缺件以 `SKIP_RETURN_CODE 77` 跳过 | `src/tests/auto/Analysis/CMakeLists.txt` |
 | 已发布形状：`models-v0.1.0.0`＝`otter-rmvpe-0.1.0.0.zip`＋`otter-game-0.1.0.0.zip`＋`manifest.json` | GitHub release（`gh release view/download` 实测） |
 | `manifest.json` 键：`bundleVersion`、`packages[].{id,file,sha512,version,compatVersion,directory,size,models{}}` | 同上，已下载原文 |

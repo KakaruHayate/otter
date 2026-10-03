@@ -29,6 +29,8 @@
 
 现行发布是标签 `models-v0.1` 下的那一个 release，内含四个包 `otter-game`、`otter-hfa`、`otter-rmvpe`、`otter-tifa`（版本均为 0.1.0.0）与一份列出四者的 `manifest.json`；更早的 `models-v0.1.0.0`、`models-v0.2.0.0`、`models-v0.3.0.0` 均已删除。`game` 包内含 `LICENSE`（1069 B），`hfa` 与 `rmvpe` 不含。
 
+把发布里的包取到本地由 `scripts/fetch-models.cmake` 承担：读 `manifest.json`、按其中记录的 SHA512 校验每个归档、解包到指定目录，**默认只列不拉**（一个 release 有数百 MB）。各 `DOTTER_FETCH_*` 设置与示例见 [README 的 Model packages 一节](../README.md#model-packages)；包内布局、版本与标签规则仍以本文档为准。
+
 `tifa` 的权重取自 TIFA 项目自己的导出：五张 ONNX 图与导出器写出的 `config.json`、`vocabulary.json`、四本词典都不入本仓，装配时用 `--variant tifa --models` 指到那层导出目录。
 
 `tifa` 声明四门语言（`cmn`/`yue`/`jpn`/`eng`），四门都写 `lyrics="scheme"`：歌词由调用方按该语言的 scheme 给出（拼音音节、粤拼音节、罗马字、ARPAbet 词），变体自己不做「文字 → 书写单位」的转换——包里的四本词典只做「书写单位 → 音素」这一步。`lyrics="text"` 是相反的一侧：歌词给普通文字、由变体转换（`hfa` 的英文就是这一侧）。

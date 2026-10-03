@@ -24,6 +24,9 @@
 2. **上游只发 `model.pt`，ONNX 需自行导出，且已实测可行。** release 资产只含 `model.pt` 与配置/词典/G2P 资产；用上游 `deploy.py` 导出成功（约 15 s），五图签名与 `ONNX.md` 一致（§2.3、§10.1）。因此**不需要**在 otter 里维护导出器，只在记录里写清导出命令、参数与产物指纹（D6）。
 3. **契约面不需要新增 Level。** Align L1 的 `languages`（ISO 639-3 + scheme + lyrics + phonemes）、`defaultLanguage`、 `silenceLabel`、`knobs` 足以装下 TIFA 的**对齐输出**（`AlignApiL1.h:99-154`）。但 TIFA 的三处功能装不进现有结果类型： **发音书写层**（TextGrid 的 `words` tier）、**发音候选与分数**、**四个诊断指标**（§3.3）；这三处按 D2 决定「扩契约 / 分期内做 / 只记录」。
 4. **主干是「一个变体插件 + 五会话 + 宿主算法」。** 新目录 `src/plugins/inferenceinterpreters/tifa/`、声明按 `packages/tifa/` 的形状（**声明不入库**，装配时由 `make-package.py --declarations <声明目录>` 指向，一变体一子目录）；`check-declarations.py` 与 `make-model-fixtures.py` 两处**当前写死 `hfa`**，不参数化则新变体被**静默跳过全部 align 校验**（`scripts/check-declarations.py:510-513`）。
+（**时效注 2026-10-03**：`check-declarations.py` 已参数化——`MODEL_KEYS` 现含 `(ALIGN, "tifa")`（`:105`、`:134`、`:150`），
+ALIGN 的语言表文案也按 variant 取名（`:553`）；`make-model-fixtures.py` 的变体是否已参数化以该脚本现文为准。
+上面写死 `hfa` 与所引 `:510-513` 是方案制定时的现状。）
 5. **验证有现成 oracle。** 同一份权重、同一段音频，`TIFA@v1.0.0:infer.py` 产的 TextGrid 即参考输出；判据沿用 hfa 先例：**标签逐条相同、起止偏差 ≤ 1 帧（10 ms）**（`docs/plans/hfa-align.md:83`、`build/hfa-run/compare.py:52-53`）。
 
 ### 0.1 本地预开发与远端重构的关系（迁移者先读）

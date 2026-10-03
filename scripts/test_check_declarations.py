@@ -10,6 +10,7 @@ import copy
 import importlib.util
 import io
 import json
+import re
 import shutil
 import tempfile
 import unittest
@@ -300,6 +301,23 @@ class Packages(unittest.TestCase):
         report = self.check(self.write_tifa("extradict", configuration=configuration))
         self.assertGreater(report.warnings, 0)
 
+    def test_tifa_language_the_variant_does_not_cover(self):
+        # The aligner resolves the dictionary of every language its exports declare through its own
+        # table of the four languages it covers and rejects a declaration that lists another one
+        # (`tifa/main.cpp`:77-82, `:1610-1619`). The lint skipped such a language, because its own
+        # table has no entry either, and so passed a package that cannot load.
+        exports = json.loads(json.dumps(TIFA_EXPORTS))
+        exports["languages"][0]["language"] = "deu"
+        exports["defaultLanguage"] = "deu"
+        configuration = dict(TIFA_CONFIGURATION)
+        configuration["languages"] = {"deu": "zh"}
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            report = self.check(self.write_tifa("uncovered", exports=exports,
+                                                configuration=configuration))
+        self.assertGreater(report.errors, 0)
+        self.assertIn("which the tifa variant does not cover", output.getvalue())
+
     def test_tifa_phonemes_must_be_the_vocabulary(self):
         # The shared symbols carry no language prefix, so they may be promised by any language;
         # a prefixed symbol that is missing or unknown is an error either way.
@@ -585,6 +603,36 @@ class Packages(unittest.TestCase):
             if interface == lint.ALIGN:
                 self.assertEqual(lint.ALIGN_LANGUAGE_KEYS,
                                  set(schema["$defs"]["language"]["properties"]))
+
+    def test_the_readers_whitelist_the_same_keys(self):
+        # A reader rejects every key it does not know before it reads any of them, so its inline
+        # whitelist is a third statement of a contract's keys, and the only one that nothing
+        # compared until now: the schemas state the keys and the lint tables restate them, and those
+        # two are already checked against each other. Each whitelist is an initializer list inside
+        # its call, so it is read out of the source by the message the call passes -- an anchor that
+        # names the list and survives rewrites of the surrounding code.
+        for interface, stem in ((lint.F0, "F0"), (lint.NOTE, "Note"), (lint.ALIGN, "Align")):
+            source = (HERE.parent / "src" / "lib" / "Api" / stem / "1" /
+                      f"{stem}ApiL1.cpp").read_text(encoding="utf-8")
+            keys = lint.EXPORTS_KEYS[interface]
+            self.assertEqual(self.reader_whitelist(source, f'"the {stem} exports"'),
+                             keys["required"] | keys["optional"], stem)
+            self.assertEqual(self.reader_whitelist(source, f'"the {stem} knobs"'),
+                             set(keys["knobs"]), stem)
+
+    def reader_whitelist(self, source: str, anchor: str) -> set:
+        """Returns the keys of the one whitelist that *anchor* names in a reader source.
+
+        The list stands between the call and its message, so everything quoted in that span is the
+        list. Requiring exactly one occurrence makes a silent failure impossible: a rewrite that
+        drops the anchor, or guards the same list twice, fails here instead of comparing nothing.
+        """
+        occurrences = source.count(anchor)
+        if occurrences != 1:
+            raise AssertionError(f"{anchor}: expected exactly one whitelist, found {occurrences}")
+        end = source.index(anchor)
+        start = source.rindex("rejectUnknownKeys(", 0, end)
+        return set(re.findall(r'"([^"]+)"', source[start:end]))
 
     def test_the_import_options_schemas_reject_every_key(self):
         # An analysis contract defines no import options, so the only valid options object is the

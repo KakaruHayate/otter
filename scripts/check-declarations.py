@@ -550,8 +550,8 @@ def check_declaration(path: Path, report: Report, declarations_only: bool = Fals
     if interface == ALIGN and not (isinstance(numbering, dict) and numbering):
         # The aligner locates the dictionary of each language through this map, so a
         # configuration without the map cannot align any language.
-        report.error(where, "the hfa configuration requires a non-empty languages object that "
-                            "maps each language identifier in the exports to a model code")
+        report.error(where, f"the {variant} configuration requires a non-empty languages object "
+                            "that maps each language identifier in the exports to a model code")
     if (interface, variant) in LANGUAGE_NUMBERING:
         kind = LANGUAGE_NUMBERING[(interface, variant)]
         if numbering is not None and not isinstance(numbering, dict):
@@ -771,7 +771,16 @@ def check_tifa_align_declaration(where: str, path: Path, exports: dict, configur
             report.error(where, f"the exports list {language} more than once")
         languages_seen.add(language)
         key = TIFA_DICTIONARIES.get(language)
-        if key is not None and key not in configuration:
+        if key is None:
+            # The aligner resolves the dictionary of every language its exports declare through its
+            # own table of the four languages it covers (`tifa/main.cpp`:77-82, `:1610-1619`) and
+            # rejects a declaration that lists another one. A language this table cannot name is
+            # therefore an error rather than a case to skip: the lint promises that a package it
+            # passes loads, and this one would not.
+            report.error(where, f"the exports list {language}, which the tifa variant does not "
+                                f"cover (it covers {', '.join(sorted(TIFA_DICTIONARIES))}), so it "
+                                f"can load no dictionary for it and rejects the declaration")
+        elif key not in configuration:
             report.error(where, f"the exports list {language} but the configuration carries no "
                                 f"{key}")
         code = (numbering or {}).get(language)

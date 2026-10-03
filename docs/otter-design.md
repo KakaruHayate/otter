@@ -998,7 +998,7 @@ ctest 共注册 12 个测试；注册数以 `src/tests/auto/Analysis/CMakeLists.
 | `test_F0Curve` | 清音插值 | 始终构建，链接 `otter_support` |
 | `test_Rmvpe` / `test_Game` / `test_Hfa` / `test_Tifa` | 四个提供者在生成的 ONNX fixture 上的完整链路 | 仅在含 dsinfer 的构建中存在；没有带 onnx 与 numpy 的 Python 时注册为禁用；运行期缺少 fixture、驱动或运行时时以退出码 77 报告跳过 |
 | `test_OnnxSupport` | 四个提供者共享的 ONNX 读取器与执行器封装：输出缺失与类型不符的区分，空结果与缺少输出的拒绝 | 仅在含 dsinfer 的构建中存在（要求 `otter_onnx_support` 目标） |
-| `test_CheckDeclarations` | `scripts/test_*.py`（linter 与打包脚本的自测） | 找到 Python 解释器时注册 |
+| `test_CheckDeclarations` | `scripts/test_*.py`（当前两份：声明 linter 与打包脚本的自测；测试包生成器没有自测） | 找到 Python 解释器时注册 |
 | `test_InstalledSurface` | 安装树形态（`check-installed-surface.cmake` 装入 scratch 前缀），含不得安装的私有头文件 | `OTTER_INSTALL` 打开时注册 |
 
 ### 验证状态

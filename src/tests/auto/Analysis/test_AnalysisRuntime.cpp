@@ -57,8 +57,7 @@ namespace {
         explicit Loaded(const char *name) {
             const fs::path paths[] = {fs::path(OTTER_TEST_PLUGIN_DIR)};
             unit.setPluginPaths(srt::InferenceCategory::NAME, paths);
-            auto opened =
-                unit.openPackage(fs::path(OTTER_TEST_PACKAGE_DIR) / name, srt::SynthUnit::Load);
+            auto opened = unit.openPackage(otter::test::packagesRoot() / name, srt::SynthUnit::Load);
             BOOST_REQUIRE_MESSAGE(static_cast<bool>(opened), otter::test::why(opened));
             package = opened.take();
         }

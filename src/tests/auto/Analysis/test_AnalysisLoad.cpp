@@ -29,7 +29,7 @@ namespace {
     namespace NoteApi = otter::Api::Note::L1;
 
     fs::path packages() {
-        return fs::path(OTTER_TEST_PACKAGE_DIR);
+        return otter::test::packagesRoot();
     }
 
     /// A unit configured as a host configures it: the stub provider on the plugin path of the

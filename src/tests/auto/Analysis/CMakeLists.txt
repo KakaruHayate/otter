@@ -61,14 +61,44 @@ foreach(_test IN LISTS _otter_tests)
     endif()
 endforeach()
 
+# The exit status with which a test reports that it did not run, which ctest reports as a skip.
+# The value is defined once because the tests and ctest must agree on it.
+set(OTTER_TEST_SKIP_EXIT_CODE 77)
+
+# A cache path rather than a generated directory: the packages are data, and the script that
+# rebuilds them is the single definition of what they hold, so a developer who does not run it, or
+# a CI job that does not prepare the directory, gets a skip rather than a pass.
+#
+#     cmake -DOTTER_TEST_PACKAGES_OUTPUT=<dir> -P scripts/make-test-packages.cmake
+#
+# Passing the same script -DOTTER_TEST_PACKAGES_CHECK=<dir> compares an existing directory instead.
+set(OTTER_TEST_PACKAGES_SOURCE "" CACHE PATH "Directory holding the generated test packages")
+if(OTTER_TEST_PACKAGES_SOURCE)
+    message(STATUS "Test packages: ${OTTER_TEST_PACKAGES_SOURCE}")
+    if(NOT EXISTS "${OTTER_TEST_PACKAGES_SOURCE}")
+        message(WARNING
+            "OTTER_TEST_PACKAGES_SOURCE names a directory that does not exist; the loading and "
+            "runtime tests will fail rather than skip")
+    endif()
+else()
+    message(STATUS "Test packages: not given; test_AnalysisLoad and test_AnalysisRuntime will skip "
+                   "(pass -DOTTER_TEST_PACKAGES_SOURCE=<dir>)")
+endif()
+
 # The loading and runtime tests discover the stub provider, so the provider must be built before
-# they run, and the tests receive its location as compile definitions.
+# they run, and the tests receive its location as a compile definition. They read the packages from
+# the environment rather than a compile definition, so that one build can be pointed at a directory
+# per run without reconfiguring.
 foreach(_needs_stub IN ITEMS test_AnalysisLoad test_AnalysisRuntime)
     if(TARGET ${_needs_stub})
         add_dependencies(${_needs_stub} otterstub)
         target_compile_definitions(${_needs_stub} PRIVATE
-            OTTER_TEST_PACKAGE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/packages"
+            OTTER_TEST_SKIP_EXIT_CODE=${OTTER_TEST_SKIP_EXIT_CODE}
             OTTER_TEST_PLUGIN_DIR="${OTTER_BUILD_PLUGINS_DIR}/inferenceinterpreters"
+        )
+        set_tests_properties(${_needs_stub} PROPERTIES
+            SKIP_RETURN_CODE ${OTTER_TEST_SKIP_EXIT_CODE}
+            ENVIRONMENT "OTTER_TEST_PACKAGES_SOURCE=${OTTER_TEST_PACKAGES_SOURCE}"
         )
     endif()
 endforeach()
@@ -110,10 +140,6 @@ if(TARGET test_Rmvpe)
                        "test_Hfa and test_Tifa are disabled")
     endif()
 endif()
-
-# The exit status with which a test reports that it did not run, which ctest reports as a skip.
-# The value is defined once because the tests and ctest must agree on it.
-set(OTTER_TEST_SKIP_EXIT_CODE 77)
 
 foreach(_model_test IN ITEMS test_Rmvpe test_Game test_Hfa test_Tifa)
     if(TARGET ${_model_test})

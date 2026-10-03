@@ -1,0 +1,72 @@
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+build-src*
+build/
+cmake-build*
+*.user
+*.lnk
+_workingDir*
+.vscode
+.idea
+.cache
+cache
+.vs
+out/
+CMakeSettings.json
+/vcpkg
+/data
+/*.natvis
+__pycache__/
+
+# Local scratch space
+#
+# .tmp/ holds throwaway analysis output and .safety/ holds local backups such as the export of a
+# branch that a history rewrite is about to drop. Neither belongs in a commit.
+/.tmp/
+/.safety/
+
+# Packages
+#
+# A package is a declaration (desc.json and inferences/*/inference.json) plus the model files it
+# names, and it travels as one archive that is published with the models. The declarations are
+# tracked; the weights are training products, and the config.json, vocabulary.json and
+# dictionaries that a declaration names come from the model's own release. What each package
+# contains and how it is published is in docs/packages.md.
+packages/**/*.onnx
+packages/**/*.txt
+packages/**/config.json
+packages/**/vocab.json
+packages/**/vocabulary.json
+packages/**/*.zip
+/packages/

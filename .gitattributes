@@ -1,0 +1,6 @@
+# Line endings
+#
+# The repository stores LF and a checkout writes LF on every platform. The declarations and the
+# schema files are compared byte for byte, since a package hash covers them, so keeping one line
+# ending everywhere is what makes an assembled package the same for everyone who assembles it.
+* text=auto eol=lf

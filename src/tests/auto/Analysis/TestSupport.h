@@ -1,6 +1,9 @@
 #ifndef OTTER_TEST_SUPPORT_H
 #define OTTER_TEST_SUPPORT_H
 
+#include <cstdlib>
+#include <filesystem>
+#include <iostream>
 #include <string>
 
 namespace otter::test {
@@ -16,6 +19,42 @@ namespace otter::test {
     template <class Expected>
     std::string why(const Expected &expected) {
         return expected ? std::string() : expected.error().toString();
+    }
+
+}
+
+// The loading and runtime tests read a directory of packages that the tests treat as data rather
+// than sources. scripts/make-test-packages.cmake rebuilds that directory, and the build passes its
+// location as the OTTER_TEST_PACKAGES_SOURCE environment variable:
+//
+//     cmake -DOTTER_TEST_PACKAGES_OUTPUT=<dir> -P scripts/make-test-packages.cmake
+//
+// A run that is not told where the packages are reports that it did not run, which ctest shows as
+// a skip. A run that is told but finds nothing there fails instead, because a directory that was
+// named on purpose and is empty means the preparation step did not happen.
+#ifndef OTTER_TEST_SKIP_EXIT_CODE
+#  error "define OTTER_TEST_SKIP_EXIT_CODE for every test that includes TestSupport.h"
+#endif
+
+namespace otter::test {
+
+    /// Returns the directory holding the packages that the loading and runtime tests read.
+    inline std::filesystem::path packagesRoot() {
+        const char *given = std::getenv("OTTER_TEST_PACKAGES_SOURCE");
+        if (given == nullptr || *given == '\0') {
+            std::cerr << "SKIP: no test packages; generate them with\n"
+                         "    cmake -DOTTER_TEST_PACKAGES_OUTPUT=<dir> -P "
+                         "scripts/make-test-packages.cmake\n"
+                         "and point OTTER_TEST_PACKAGES_SOURCE at that directory\n";
+            std::exit(OTTER_TEST_SKIP_EXIT_CODE);
+        }
+        const std::filesystem::path root(given);
+        if (!std::filesystem::is_directory(root)) {
+            std::cerr << "OTTER_TEST_PACKAGES_SOURCE is set to " << root.string()
+                      << ", which is not a directory\n";
+            std::exit(EXIT_FAILURE);
+        }
+        return root;
     }
 
 }

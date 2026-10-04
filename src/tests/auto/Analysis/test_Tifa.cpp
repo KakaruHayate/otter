@@ -438,7 +438,14 @@ BOOST_AUTO_TEST_CASE(test_Tifa_PlacesTheWordsTheLyricsName) {
     // without the word losing its place.
     for (const auto &word : result->words) {
         if (word.text == schema->silenceLabel) {
-            BOOST_CHECK(word.phones.empty());
+            // An inserted segment carries the label as its one phoneme: the contract expects the
+            // label of the silence segment in PhoneInfo::text, and the other variant that inserts
+            // segments reports that shape rather than no phonemes at all.
+            BOOST_CHECK_MESSAGE(word.phones.size() == 1, "the silence segment reports one phoneme");
+            if (word.phones.size() == 1) {
+                BOOST_CHECK_EQUAL(word.phones.front().text, schema->silenceLabel);
+                BOOST_CHECK_EQUAL(word.phones.front().duration, word.duration);
+            }
             continue;
         }
         BOOST_CHECK(!word.phones.empty());
@@ -473,7 +480,13 @@ BOOST_AUTO_TEST_CASE(test_Tifa_NamesWhatTheModelPlacedNoWordOver) {
 
     const auto &last = result->words.back();
     BOOST_CHECK_EQUAL(last.text, schema->silenceLabel);
-    BOOST_CHECK(last.phones.empty());
+    // The inserted segment reports its label as the one phoneme that covers it, the shape the
+    // contract describes for a phone that belongs to a silence segment.
+    BOOST_CHECK_MESSAGE(last.phones.size() == 1, "the trailing silence reports one phoneme");
+    if (last.phones.size() == 1) {
+        BOOST_CHECK_EQUAL(last.phones.front().text, schema->silenceLabel);
+        BOOST_CHECK_EQUAL(last.phones.front().duration, last.duration);
+    }
     // The gap is the part of the span the frames do not reach, and nothing more.
     BOOST_CHECK_GT(last.duration, 0.0);
     BOOST_CHECK_LE(last.duration, FRAME + 1e-6);

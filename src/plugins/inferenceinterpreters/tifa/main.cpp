@@ -1250,6 +1250,11 @@ namespace {
                 gap.text = m_schema.silenceLabel;
                 gap.start = from;
                 gap.duration = to - from;
+                // The label of an inserted segment is one of the declared phonemes, and the contract
+                // expects the phonemes of a word to cover it exactly, with the label of the segment
+                // in PhoneInfo::text. hfa, the other variant that inserts segments, reports the same
+                // shape.
+                gap.phones.push_back({m_schema.silenceLabel, from, to - from});
                 words.push_back(std::move(gap));
             };
             const auto refusesGaps = [this]() {

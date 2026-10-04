@@ -738,8 +738,10 @@ namespace otter::hfa {
                             static_cast<float>(word.start + word.duration)});
                 if (!remaining) {
                     // This branch is reachable only if a word's span is empty, which the reference
-                    // also skips with a log message instead of changing the intervals. The piece
-                    // is kept instead of failing the whole insertion.
+                    // also skips with a log message instead of changing the intervals. The span of
+                    // an empty word is nothing to remove, so the piece is taken unchanged: dropping
+                    // it would take every segment inserted beside that word away from the caller.
+                    trimmed.push_back(piece);
                     continue;
                 }
                 trimmed.insert(trimmed.end(), remaining->begin(), remaining->end());

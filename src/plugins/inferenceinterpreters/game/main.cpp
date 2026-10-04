@@ -332,6 +332,9 @@ namespace {
 
             // 6. Lay the notes out on the host's timeline.
             auto result = layOut(measured->durations, *estimated, audio.startTime, settings.cutoff);
+            if (!result) {
+                return result.takeError();
+            }
 
             // A stop that arrived during the last model call may not have reached the session in
             // time. The contract requires a cancelled execution to report Canceled and no result.
@@ -657,16 +660,28 @@ namespace {
         // The model produces the durations in seconds, so the placement is a running sum. The
         // original implementation converted each duration to ticks at a single tempo, which
         // quantized the durations and misplaced every note in a score with tempo changes.
-        static std::unique_ptr<NoteApi::NoteResult> layOut(const std::vector<float> &durations,
-                                                           const Estimated &estimated,
-                                                           double startTime, double cutoff) {
+        static srt::Expected<std::unique_ptr<NoteApi::NoteResult>>
+            layOut(const std::vector<float> &durations, const Estimated &estimated, double startTime,
+                   double cutoff) {
+            // The two outputs of the estimator belong to the durations one for one: a shorter array
+            // would silently drop the notes it does not cover instead of reporting what the model
+            // did. A30 assigns an element count that disagrees with another output to ModelMismatch,
+            // and the rmvpe variant refuses the same way.
+            if (estimated.keys.size() != durations.size() ||
+                estimated.confidences.size() != durations.size()) {
+                return srt::Error(otter::AnalysisError::ModelMismatch,
+                                  "the estimator model returned " +
+                                      std::to_string(estimated.keys.size()) + " keys and " +
+                                      std::to_string(estimated.confidences.size()) +
+                                      " confidences for " + std::to_string(durations.size()) +
+                                      " durations");
+            }
             auto result = std::make_unique<NoteApi::NoteResult>();
             double at = 0;
             for (std::size_t i = 0; i < durations.size(); ++i) {
                 const double length = durations[i];
-                const double confidence =
-                    i < estimated.confidences.size() ? estimated.confidences[i] : 0.0;
-                if (confidence >= cutoff && i < estimated.keys.size()) {
+                const double confidence = estimated.confidences[i];
+                if (confidence >= cutoff) {
                     result->notes.push_back({static_cast<int>(std::lround(estimated.keys[i])),
                                              startTime + at, length, confidence});
                 }

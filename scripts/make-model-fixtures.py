@@ -774,6 +774,10 @@ def build_tifa_prepare(path: Path) -> None:
     nodes.append(_const("axis_0", np.array([0], dtype=np.int64)))
     nodes.append(_const("axis_1", np.array([1], dtype=np.int64)))
     nodes.append(_const("axis_2", np.array([2], dtype=np.int64)))
+    # CumSum takes its axis as a scalar input tensor, unlike the axes of Slice and the reductions,
+    # which are one-dimensional. A rank-1 axis is refused by the onnx reference evaluator, so the
+    # two CumSum nodes below read this one and not axis_1.
+    nodes.append(_const("cum_axis", np.array(1, dtype=np.int64)))
     nodes.append(_const("zero", np.array(0, dtype=np.int64)))
     # A row differs when the slots it fills do not all hold the same token. A row that fills none
     # agrees with itself, which keeps a padding row out of every fragment.
@@ -794,7 +798,7 @@ def build_tifa_prepare(path: Path) -> None:
     nodes.append(helper.make_node("And", ["has_slot", "disagrees"], ["differs"]))
     # mapping[row] = the 1-based number of the row among the differing rows, zero elsewhere.
     nodes.append(helper.make_node("Cast", ["differs"], ["differs_i"], to=TensorProto.INT64))
-    nodes.append(helper.make_node("CumSum", ["differs_i", "axis_1"], ["ordinal"]))
+    nodes.append(helper.make_node("CumSum", ["differs_i", "cum_axis"], ["ordinal"]))
     nodes.append(helper.make_node("Where", ["differs", "ordinal", "zero"], ["mapping"]))
     # A segment is a run of consecutive differing rows that share a word. A row that does not differ
     # ends the run even when its word is the same one.
@@ -826,7 +830,7 @@ def build_tifa_prepare(path: Path) -> None:
     nodes.append(helper.make_node("Not", ["continues"], ["breaks"]))
     nodes.append(helper.make_node("And", ["differs", "breaks"], ["starts_segment"]))
     nodes.append(helper.make_node("Cast", ["starts_segment"], ["starts_i"], to=TensorProto.INT64))
-    nodes.append(helper.make_node("CumSum", ["starts_i", "axis_1"], ["segment_ordinal"]))
+    nodes.append(helper.make_node("CumSum", ["starts_i", "cum_axis"], ["segment_ordinal"]))
     nodes.append(helper.make_node("Where", ["differs", "segment_ordinal", "zero"], ["segments"]))
     # tokens = the first candidate column, the row's own reading of its slot.
     nodes.append(helper.make_node("Slice", ["paths", "first", "one_1", "axis_2"], ["first_column"]))

@@ -226,6 +226,12 @@ namespace otter::cli {
             CloseHandle(handles->stdinWrite);
             handles->stdinWrite = nullptr;
         }
+        if (handles->stdoutRead != nullptr) {
+            // Released here as well, because an object reused after a cancelled execution spawns
+            // again and would otherwise overwrite the old read end without closing it.
+            CloseHandle(handles->stdoutRead);
+            handles->stdoutRead = nullptr;
+        }
         return srt::Expected<void>();
     }
 
@@ -389,6 +395,12 @@ namespace otter::cli {
         if (handles->stdinWrite >= 0) {
             ::close(handles->stdinWrite);
             handles->stdinWrite = -1;
+        }
+        if (handles->stdoutRead >= 0) {
+            // Released here as well, because an object reused after a cancelled execution spawns
+            // again and would otherwise overwrite the old read end without closing it.
+            ::close(handles->stdoutRead);
+            handles->stdoutRead = -1;
         }
         return srt::Expected<void>();
     }

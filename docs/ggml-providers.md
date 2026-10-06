@@ -18,7 +18,7 @@ The configuration block of a declaration names those files, relative to the decl
 | `game-ggml` | `Note` | `cli` (the engine's executable), `model` (the GGUF), `languages` (identifier → model numbering), `timestep` |
 | `tifa-ggml` | `Align` | `cli`, `model`, `dictionaries` (the G2P dictionary tree), `languages` (identifier → engine code) |
 
-Two example declarations, written against real releases, live under [docs/examples/packages](examples/packages): `game-ggml` (GAME-1.0-medium) and `tifa-ggml` (TIFA-1.0-ST). They pass the lint as they are, and `make-package.py` assembles them the way it assembles the factory packages — point `--models` at the unpacked release archive and the packager copies the engine, the model and the dictionaries into the package:
+Two example declarations, written against real releases, live under [docs/examples/packages](examples/packages): `game-ggml` (GAME-1.0-medium) and `tifa-ggml` (TIFA-1.0-ST). They pass the lint as they are, and `make-package.py` assembles them the way it assembles the factory packages — point `--models` at the unpacked release archive and the packager copies the engine, the model and the dictionaries into the package. Their `version` and `compatVersion` are pinned to the project version of the tree that carries them, as the lint requires of every declaration, so a project version bump must bump them with it; the lint names the file that lags.
 
 ```sh
 python3 scripts/make-package.py --variant game-ggml \

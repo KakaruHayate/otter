@@ -144,9 +144,7 @@ Without that variable the two tests exit with the status ctest reports as skippe
 
 ## Model packages
 
-A package is a declaration plus the model files it names, and it travels as one archive that is published with the models rather than from this repository. The ggml variants drive the engines' release archives (.oudep) as external processes instead of running ONNX graphs; [docs/ggml-providers.md](docs/ggml-providers.md) describes them and the declarations under [docs/examples/packages](docs/examples/packages). The factory packages are the four that follow:
-
-A package is a declaration plus the model files it names, and it travels as one archive that is published with the models rather than from this repository: release `models-v0.1` provides `otter-game`, `otter-hfa`, `otter-rmvpe` and `otter-tifa`, version 0.1.0.0, with a `manifest.json` that lists all four. The declarations are not tracked here; assembly reads them from the directory given as `--declarations`, and [docs/packages.md](docs/packages.md) is the authority on what a release contains.
+A package is a declaration plus the model files it names, and it travels as one archive that is published with the models rather than from this repository: release `models-v0.1` provides `otter-game`, `otter-hfa`, `otter-rmvpe` and `otter-tifa`, version 0.1.0.0, with a `manifest.json` that lists all four. The declarations are not tracked here; assembly reads them from the directory given as `--declarations`, and [docs/packages.md](docs/packages.md) is the authority on what a release contains. Two more variants run the engines of their own releases instead of ONNX graphs and package an engine archive rather than weights; [docs/ggml-providers.md](docs/ggml-providers.md) describes them and the declarations under [docs/examples/packages](docs/examples/packages).
 
 A checkout can be given the real packages with one command, without a Python interpreter:
 

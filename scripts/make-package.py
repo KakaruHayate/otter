@@ -104,7 +104,10 @@ def digest(path: Path, algorithm: str) -> str:
         members = sorted((member for member in path.rglob("*") if member.is_file()),
                          key=lambda member: member.relative_to(path).as_posix())
         for member in members:
-            hasher.update(member.relative_to(path).as_posix().encode("utf-8"))
+            name = member.relative_to(path).as_posix().encode("utf-8")
+            hasher.update(len(name).to_bytes(8, "little"))
+            hasher.update(name)
+            hasher.update(member.stat().st_size.to_bytes(8, "little"))
             with member.open("rb") as handle:
                 for block in iter(lambda: handle.read(CHUNK), b""):
                     hasher.update(block)
@@ -220,8 +223,10 @@ def assemble(declarations: Path, variant: str, models: Path, output: Path,
         (directory / inside).parent.mkdir(parents=True, exist_ok=True)
         if candidate.is_dir():
             # A directory a declaration names is one unit the engine reads whole, the dictionaries
-            # of the tifa-ggml variant above all, so it travels with every file it holds.
-            shutil.copytree(candidate, directory / inside)
+            # of the tifa-ggml variant above all, so it travels with every file it holds. The
+            # destination may already exist because an earlier key shipped a file inside it, so the
+            # copy merges rather than refuses.
+            shutil.copytree(candidate, directory / inside, dirs_exist_ok=True)
         else:
             shutil.copy2(candidate, directory / inside)
         shipped.append(inside)

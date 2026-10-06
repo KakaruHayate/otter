@@ -300,6 +300,15 @@ namespace {
             m_serve.terminate();
         }
 
+        /// Requests cancellation and also kills the engine, because the request frame in flight is
+        /// what a stopped execution is blocked on. The handle and the pipes are reaped by the
+        /// execution thread, which is the only thread that owns them.
+        srt::Expected<void> stop() override {
+            (void) NoteExecutive::stop();
+            (void) m_serve.requestCancel();
+            return srt::Expected<void>();
+        }
+
     protected:
         srt::Expected<std::unique_ptr<NoteApi::NoteResult>>
             run(const NoteApi::NoteStartInput &input) override {
@@ -384,14 +393,17 @@ namespace {
             }
             auto line = m_serve.readLine();
             if (!line) {
+                m_serve.terminate();
                 return srt::Error(otter::AnalysisError::ModelFailed,
                                   "the game CLI closed its output before announcing readiness");
             }
             auto response = parseServeResponse(line.take());
             if (!response) {
+                m_serve.terminate();
                 return response.takeError();
             }
             if (!response->ready) {
+                m_serve.terminate();
                 return srt::Error(otter::AnalysisError::ModelFailed,
                                   "the game CLI failed to load its model: " + response->message);
             }

@@ -42,34 +42,49 @@ SCALAR = {
 }
 
 
+def read_exact(handle, length: int) -> bytes:
+    """Returns exactly length bytes, or exits when the file ends inside a field.
+
+    A truncated or corrupt file would otherwise hand a partial field to struct.unpack, which
+    raises a bare struct.error, or to a string decode, which returns a short string with no sign
+    that the file was cut short.
+    """
+    data = handle.read(length)
+    if len(data) != length:
+        raise SystemExit(f"the metadata ends inside a field after {length - len(data)} missing "
+                         "bytes; the file is truncated or not a GGUF file")
+    return data
+
+
 def read_string(handle) -> str:
-    (length,) = struct.unpack("<Q", handle.read(8))
-    return handle.read(length).decode("utf-8")
+    (length,) = struct.unpack("<Q", read_exact(handle, 8))
+    return read_exact(handle, length).decode("utf-8")
 
 
 def read_value(handle, kind):
     if kind == STRING:
         return read_string(handle)
     if kind == ARRAY:
-        element, (count,) = struct.unpack("<I", handle.read(4)), struct.unpack("<Q", handle.read(8))
+        element = struct.unpack("<I", read_exact(handle, 4))[0]
+        (count,) = struct.unpack("<Q", read_exact(handle, 8))
         return [read_value(handle, element) for _ in range(count)]
-    return struct.unpack(SCALAR[kind], handle.read(struct.calcsize(SCALAR[kind])))[0]
+    return struct.unpack(SCALAR[kind], read_exact(handle, struct.calcsize(SCALAR[kind])))[0]
 
 
 def read_metadata(path: Path) -> dict:
     """Returns the metadata key-value pairs of a GGUF file, tensors untouched."""
     with path.open("rb") as handle:
-        if handle.read(4) != b"GGUF":
+        if read_exact(handle, 4) != b"GGUF":
             raise SystemExit(f"{path}: not a GGUF file")
-        version, = struct.unpack("<I", handle.read(4))
+        version, = struct.unpack("<I", read_exact(handle, 4))
         if version < 2:
             raise SystemExit(f"{path}: GGUF version {version} predates the metadata format this "
                              "script reads")
-        tensor_count, kv_count = struct.unpack("<QQ", handle.read(16))
+        tensor_count, kv_count = struct.unpack("<QQ", read_exact(handle, 16))
         if tensor_count:
             print(f"note: {path} carries {tensor_count} tensors, which this script skips",
                   file=sys.stderr)
-        return {read_string(handle): read_value(handle, struct.unpack("<I", handle.read(4))[0])
+        return {read_string(handle): read_value(handle, struct.unpack("<I", read_exact(handle, 4))[0])
                 for _ in range(kv_count)}
 
 

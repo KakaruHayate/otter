@@ -98,13 +98,17 @@ item []:
         name = "texts"
         xmin = 0
         xmax = 1
-        intervals: size = 2
+        intervals: size = 3
         intervals [1]:
             xmin = 0
-            xmax = 0.5
-            text = "ni"
+            xmax = 0.2
+            text = ""
         intervals [2]:
-            xmin = 0.5
+            xmin = 0.2
+            xmax = 0.6
+            text = "ni"
+        intervals [3]:
+            xmin = 0.6
             xmax = 1
             text = "hao"
     item [2]:
@@ -114,11 +118,11 @@ item []:
         xmax = 1
         intervals: size = 2
         intervals [1]:
-            xmin = 0
-            xmax = 0.5
+            xmin = 0.2
+            xmax = 0.6
             text = "ni"
         intervals [2]:
-            xmin = 0.5
+            xmin = 0.6
             xmax = 1
             text = "hao"
     item [3]:
@@ -128,19 +132,19 @@ item []:
         xmax = 1
         intervals: size = 4
         intervals [1]:
-            xmin = 0
-            xmax = 0.25
+            xmin = 0.2
+            xmax = 0.35
             text = "n"
         intervals [2]:
-            xmin = 0.25
-            xmax = 0.5
+            xmin = 0.35
+            xmax = 0.6
             text = "i"
         intervals [3]:
-            xmin = 0.5
-            xmax = 0.7
+            xmin = 0.6
+            xmax = 0.8
             text = "x"
         intervals [4]:
-            xmin = 0.7
+            xmin = 0.8
             xmax = 1
             text = "ao"
 )");

@@ -261,9 +261,9 @@ BOOST_AUTO_TEST_CASE(test_TifaGgml_AlignsAgainstTheFakeCli) {
     host.write();
     auto analyzer = host.open();
 
-    // The fake tool aligns two words over one second: "ni" over the first half, "hao" over the
-    // second, each with two phones. Against a one-second span the words tile it exactly, so no
-    // silence is inserted, and against a two-second span the second half is.
+    // The fake tool aligns a leading gap and two words over one second: "ni" from 0.2 to 0.6 and
+    // "hao" from 0.6 to 1, each with two phones. Against a one-second span the leading gap is the
+    // only silence, and against a two-second span the second half is another.
     AlignApi::AlignStartInput input;
     input.audio = tone(1.0, 3.0);
     input.lyrics = "ni hao";
@@ -279,15 +279,21 @@ BOOST_AUTO_TEST_CASE(test_TifaGgml_AlignsAgainstTheFakeCli) {
 
     BOOST_CHECK_EQUAL(result->language, "cmn");
     BOOST_CHECK_EQUAL(result->scheme, "pinyin");
-    BOOST_REQUIRE_EQUAL(result->words.size(), 2u);
+    BOOST_REQUIRE_EQUAL(result->words.size(), 3u);
 
-    BOOST_CHECK_EQUAL(result->words.front().text, "ni");
+    // The leading gap is a word of the silence label, and the words after it begin where their
+    // own phones begin, not where the span does.
+    BOOST_CHECK_EQUAL(result->words.front().text, "SP");
     BOOST_CHECK_CLOSE(result->words.front().start, 3.0, 1e-6);
-    BOOST_CHECK_CLOSE(result->words.front().duration, 0.5, 1e-3);
-    BOOST_REQUIRE_EQUAL(result->words.front().phones.size(), 2u);
-    BOOST_CHECK_EQUAL(result->words.front().phones.front().text, "n");
+    BOOST_CHECK_CLOSE(result->words.front().duration, 0.2, 1e-3);
+    BOOST_REQUIRE_EQUAL(result->words.front().phones.size(), 1u);
+    BOOST_CHECK_EQUAL(result->words[1].text, "ni");
+    BOOST_CHECK_CLOSE(result->words[1].start, 3.2, 1e-3);
+    BOOST_CHECK_CLOSE(result->words[1].duration, 0.4, 1e-3);
+    BOOST_REQUIRE_EQUAL(result->words[1].phones.size(), 2u);
+    BOOST_CHECK_EQUAL(result->words[1].phones.front().text, "n");
     BOOST_CHECK_EQUAL(result->words.back().text, "hao");
-    BOOST_CHECK_CLOSE(result->words.back().start, 3.5, 1e-3);
+    BOOST_CHECK_CLOSE(result->words.back().start, 3.6, 1e-3);
     BOOST_REQUIRE_EQUAL(result->words.back().phones.size(), 2u);
     BOOST_CHECK_EQUAL(result->words.back().phones.front().text, "x");
 
@@ -319,7 +325,7 @@ BOOST_AUTO_TEST_CASE(test_TifaGgml_AlignsAgainstTheFakeCli) {
     auto padded = analyzer->start(over);
     BOOST_REQUIRE_MESSAGE(static_cast<bool>(padded), why(padded));
     auto paddedResult = padded.take();
-    BOOST_REQUIRE_GE(paddedResult->words.size(), 3u);
+    BOOST_REQUIRE_GE(paddedResult->words.size(), 4u);
     BOOST_CHECK_EQUAL(paddedResult->words.back().text, "SP");
     BOOST_CHECK_CLOSE(paddedResult->words.back().start, 1.0, 1e-3);
     BOOST_CHECK_CLOSE(paddedResult->words.back().start + paddedResult->words.back().duration, 2.0,

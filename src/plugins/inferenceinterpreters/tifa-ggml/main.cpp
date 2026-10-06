@@ -113,6 +113,10 @@ namespace {
         // The tier the pending triple belongs to, remembered when the triple starts: the next
         // tier's header arrives before its own first triple flushes the previous tier's last one.
         std::string pendingTier;
+        // Whether an interval of the current tier is open. A tier states its own xmin and xmax in
+        // its header, and those lines are not an interval; only a triple that follows an
+        // "intervals [" line is one.
+        bool inInterval = false;
         std::optional<double> xmin;
         std::optional<double> xmax;
         std::string text;
@@ -142,11 +146,20 @@ namespace {
             };
             if (view.find("name = ") != std::string_view::npos) {
                 flush();
+                inInterval = false;
                 const auto begin = view.find('"');
                 const auto end = view.rfind('"');
                 tierName = begin != std::string_view::npos && end != begin
                                ? std::string(view.substr(begin + 1, end - begin - 1))
                                : std::string();
+            } else if (view.find("intervals [") != std::string_view::npos) {
+                // A new interval of one tier starts; the triple before it is complete.
+                flush();
+                inInterval = true;
+            } else if (!inInterval) {
+                // The tier header and the file header state xmin and xmax as well, and neither is
+                // an interval of anything.
+                continue;
             } else if (view.find("xmin = ") != std::string_view::npos) {
                 pendingTier = tierName;
                 xmin = number(view.substr(view.find('=') + 1));
@@ -158,9 +171,6 @@ namespace {
                 text = begin != std::string_view::npos && end != begin
                            ? std::string(view.substr(begin + 1, end - begin - 1))
                            : std::string();
-            } else if (view.find("intervals [") != std::string_view::npos) {
-                // A new interval of one tier starts; the triple before it is complete.
-                flush();
             }
         }
         std::fclose(file);
@@ -186,6 +196,15 @@ namespace {
             // with it the task.
             (void) stop();
             (void) waitForFinished();
+        }
+
+        /// Requests cancellation and also kills the running tool, because the tool call is what a
+        /// stopped execution is blocked on. The handle and the pipes are reaped by the execution
+        /// thread, which is the only thread that owns them.
+        srt::Expected<void> stop() override {
+            (void) AlignExecutive::stop();
+            (void) m_active.requestCancel();
+            return srt::Expected<void>();
         }
 
     protected:
@@ -336,7 +355,6 @@ namespace {
                 return wrote.takeError();
             }
 
-            otter::cli::Process process;
             std::vector<std::string> commandLine = {m_configuration.cli.string(), "align",
                                                     spanFile.string(), "-m",
                                                     m_configuration.model.string()};
@@ -350,9 +368,9 @@ namespace {
             }
             commandLine.insert(commandLine.end(), {"--skip-handling", "omit", "--output-formats",
                                                    "textgrid", "-o", directory.string()});
-            auto spawned = process.start(commandLine);
+            auto spawned = m_active.start(commandLine);
             if (spawned) {
-                auto code = process.wait();
+                auto code = m_active.wait();
                 if (!code) {
                     spawned = code.takeError();
                 } else if (code.take() != 0) {
@@ -361,6 +379,9 @@ namespace {
                                          "host's standard error");
                 }
             }
+            // The pipes are reaped here, on the thread that owns them, whether the tool finished,
+            // failed or was killed by a stop.
+            m_active.terminate();
             if (!spawned) {
                 otter::cli::removeScratchDirectory(directory);
                 if (cancelled()) {
@@ -494,6 +515,10 @@ namespace {
             }
             return placed;
         }
+
+        // The tool of the execution in flight, if any. Every execution starts it and reaps it on
+        // its own thread, and a stop from another thread reaches it through requestCancel() only.
+        otter::cli::Process m_active;
 
         // Owned by the spec, which outlives every executive created from it.
         const TifaGgmlConfiguration &m_configuration;

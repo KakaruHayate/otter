@@ -184,7 +184,7 @@ The analyzers are plugins located through the inference search path. A host ther
 
 + [otter-design.md](docs/otter-design.md): the design, including the layering, the contract surfaces, the host responsibilities, the decision ledger, the audits and the implementation milestones.
 + [packages.md](docs/packages.md): the factory declarations, the assembly of a package and the checks it must pass.
-+ [ggml-providers.md](docs/ggml-providers.md): the `game-ggml` and `tifa-ggml` variants, which run the ggml engines of game.cpp and tifa.cpp inside the plugin.
++ [ggml-providers.md](docs/ggml-providers.md): the `game-ggml` and `tifa-ggml` variants, which drive the ggml engines of game.cpp and tifa.cpp as external processes.
 + [lite-integration.md](docs/lite-integration.md): the integration of otter into ds-editor-lite and the functions that ds-editor-lite no longer implements itself.
 + [plans/hfa-align.md](docs/plans/hfa-align.md): the implementation plan and record of the Align contract and the `hfa` variant.
 + [plans/tifa-align.md](docs/plans/tifa-align.md): the implementation plan and record of the `tifa` variant, including the readings of the real-weight gate.

@@ -53,6 +53,14 @@ namespace otter::cli {
         /// input did run.
         srt::Expected<int> wait();
 
+        /// Requests that the process die, without waiting for it and without releasing anything.
+        ///
+        /// This is the one call another thread may make while the owning thread sits in write(),
+        /// readLine() or wait(): it takes only the object's own lock, kills the child, and leaves
+        /// every handle and every descriptor for the owning thread to reap, as the contract of a
+        /// cancellation requires. A process that has already exited reports an empty value.
+        srt::Expected<void> requestCancel();
+
         /// Terminates the process. A process that has already exited reports an empty value,
         /// which makes this usable as the unconditional cancellation of a stopped execution.
         srt::Expected<void> terminate();

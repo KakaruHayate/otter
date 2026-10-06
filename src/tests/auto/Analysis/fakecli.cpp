@@ -65,7 +65,9 @@ namespace {
             const auto dot = argument.rfind('.');
             std::string file =
                 slash == std::string::npos ? argument : argument.substr(slash + 1);
-            if (dot != std::string::npos && dot > slash) {
+            // A bare file name has no separator at all, and its dot still ends the stem: the
+            // comparison against the separator only applies where there is one.
+            if (dot != std::string::npos && (slash == std::string::npos || dot > slash)) {
                 file = file.substr(0, dot - (slash == std::string::npos ? 0 : slash + 1));
             }
             stem = file;

@@ -137,6 +137,16 @@ namespace {
         char line[1024];
         while (std::fgets(line, sizeof(line), file) != nullptr) {
             std::string_view view(line);
+            // The fields are matched at the start of the line, after its indentation: a field name
+            // that merely occurs inside another field's value, quoted text above all, is not a
+            // field.
+            const auto first = view.find_first_not_of(" \t");
+            if (first != std::string_view::npos) {
+                view.remove_prefix(first);
+            }
+            const auto begins = [&view](std::string_view field) {
+                return view.rfind(field, 0) == 0;
+            };
             const auto number = [](std::string_view field) {
                 try {
                     return std::stod(std::string(field));
@@ -144,7 +154,7 @@ namespace {
                     return 0.0;
                 }
             };
-            if (view.find("name = ") != std::string_view::npos) {
+            if (begins("name = ")) {
                 flush();
                 inInterval = false;
                 const auto begin = view.find('"');
@@ -152,7 +162,7 @@ namespace {
                 tierName = begin != std::string_view::npos && end != begin
                                ? std::string(view.substr(begin + 1, end - begin - 1))
                                : std::string();
-            } else if (view.find("intervals [") != std::string_view::npos) {
+            } else if (begins("intervals [")) {
                 // A new interval of one tier starts; the triple before it is complete.
                 flush();
                 inInterval = true;
@@ -160,12 +170,12 @@ namespace {
                 // The tier header and the file header state xmin and xmax as well, and neither is
                 // an interval of anything.
                 continue;
-            } else if (view.find("xmin = ") != std::string_view::npos) {
+            } else if (begins("xmin = ")) {
                 pendingTier = tierName;
                 xmin = number(view.substr(view.find('=') + 1));
-            } else if (view.find("xmax = ") != std::string_view::npos) {
+            } else if (begins("xmax = ")) {
                 xmax = number(view.substr(view.find('=') + 1));
-            } else if (view.find("text = ") != std::string_view::npos) {
+            } else if (begins("text = ")) {
                 const auto begin = view.find('"');
                 const auto end = view.rfind('"');
                 text = begin != std::string_view::npos && end != begin
